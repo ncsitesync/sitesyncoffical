@@ -759,6 +759,7 @@ async function doLogin() {
   const { error } = await _supabase.auth.signInWithPassword({ email, password: pwd });
   btn.disabled = false; btn.textContent = 'Sign In';
   if (error) { msg.textContent = error.message; msg.className = 'auth-msg err'; }
+  else { localStorage.removeItem('ss_quotes'); }
 }
 
 async function doSignup() {
@@ -771,12 +772,13 @@ async function doSignup() {
   const { error } = await _supabase.auth.signUp({ email, password: pwd });
   btn.disabled = false; btn.textContent = 'Create Account';
   if (error) { msg.textContent = error.message; msg.className = 'auth-msg err'; }
-  else { msg.textContent = 'Check your email to confirm your account, then log in.'; msg.className = 'auth-msg ok'; }
+  else { localStorage.removeItem('ss_quotes'); msg.textContent = 'Check your email to confirm your account, then log in.'; msg.className = 'auth-msg ok'; }
 }
 
 async function doLogout() {
   await _supabase.auth.signOut();
   window._currentUserId = null;
+  localStorage.removeItem('ss_quotes');
   _authShowModal();
 }
 
