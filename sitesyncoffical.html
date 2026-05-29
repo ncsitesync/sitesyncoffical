@@ -2351,7 +2351,7 @@ function openSaveModal(){
   openModal('saveModal');
   setTimeout(()=>document.getElementById('modal-name').focus(),80);
 }
-function confirmSave(){
+async function confirmSave(){
   const name=document.getElementById('modal-name').value.trim();
   if(!name){document.getElementById('modal-name').focus();return;}
 
@@ -2380,7 +2380,7 @@ function confirmSave(){
   putQuotes(quotes);
 
   // Sync to Supabase
-  _supabase.from('quotes').upsert({quote_id: snap.id, user_id: window._currentUserId||null, name: snap.name, client: snap.clientName, phone: snap.phone, total: snap.total, status: snap.status, data: snap},{onConflict: 'quote_id'}).then(({data, error}) => { if(error) console.error('Supabase error:', error); else console.log('Supabase saved:', data); });
+  _supabase.from('quotes').upsert({quote_id: snap.id, user_id: (await _supabase.auth.getUser()).data.user.id, name: snap.name, client: snap.clientName, phone: snap.phone, total: snap.total, status: snap.status, data: snap},{onConflict: 'quote_id'}).then(({data, error}) => { if(error) console.error('Supabase error:', error); else console.log('Supabase saved:', data); });
 
   // Auto-create/update client profile
   ensureClientFromSnap(snap);
@@ -4500,9 +4500,11 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-function loadQuotesFromSupabase(){
-  if(!_supabase || !window._currentUserId) return;
-  _supabase.from('quotes').select('*').eq('user_id', window._currentUserId).then(({data, error}) => {
+async function loadQuotesFromSupabase(){
+  if(!_supabase) return;
+  const { data: { user } } = await _supabase.auth.getUser();
+  if(!user) return;
+  _supabase.from('quotes').select('*').eq('user_id', user.id).then(({data, error}) => {
     if(error){console.error('Supabase load error:', error); return;}
     if(!data||!data.length) return;
     const quotes=getQuotes();
