@@ -696,6 +696,7 @@ details[open] summary::before{transform:rotate(90deg)}
 }
 .welcome-close:hover{background:rgba(255,255,255,.24)}
 
+@keyframes ssAppFadeIn{from{opacity:0}to{opacity:1}}
 /* AUTH MODAL */
 #authOverlay{position:fixed;inset:0;background:rgba(7,17,58,.97);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .auth-box{background:#0d1c38;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:32px;width:min(420px,95vw);box-shadow:0 8px 40px rgba(0,0,0,.5)}
@@ -729,6 +730,7 @@ window._currentUserId = null;
 function _authShowApp() {
   document.getElementById('authOverlay').style.display = 'none';
   document.getElementById('logoutBtn').style.display = '';
+  document.body.style.animation = 'ssAppFadeIn 400ms ease forwards';
   // Load cloud quotes for the authenticated user
   if (typeof loadQuotesFromSupabase === 'function') loadQuotesFromSupabase();
 }
@@ -2381,6 +2383,7 @@ async function confirmSave(){
 
   // Sync to Supabase
   const {data: {user}} = await _supabase.auth.getUser();
+  if(!user){ _authShowModal(); alert('Session expired. Please log in again.'); return; }
   _supabase.from('quotes').upsert({quote_id: snap.id, name: snap.name, client: snap.clientName, phone: snap.phone, total: snap.total, status: snap.status, data: snap, user_id: user.id}, {onConflict: 'quote_id'}).then(({error}) => { if(error) console.error('Supabase error:', error); else console.log('Saved to Supabase'); });
 
   // Auto-create/update client profile
