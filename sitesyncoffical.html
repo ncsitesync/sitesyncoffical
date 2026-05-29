@@ -695,6 +695,27 @@ details[open] summary::before{transform:rotate(90deg)}
   touch-action:manipulation;-webkit-tap-highlight-color:transparent;
 }
 .welcome-close:hover{background:rgba(255,255,255,.24)}
+
+/* AUTH MODAL */
+#authOverlay{position:fixed;inset:0;background:rgba(7,17,58,.97);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.auth-box{background:#0d1c38;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:32px;width:min(420px,95vw);box-shadow:0 8px 40px rgba(0,0,0,.5)}
+.auth-logo{text-align:center;margin-bottom:24px}
+.auth-logo .al-dot{width:10px;height:10px;background:var(--blue);border-radius:50%;display:inline-block;margin-right:8px;box-shadow:0 0 8px rgba(20,71,204,.6)}
+.auth-logo .al-name{font-size:1.2rem;font-weight:700;color:#fff;letter-spacing:.12em;text-transform:uppercase;vertical-align:middle}
+.auth-tabs{display:flex;background:rgba(255,255,255,.06);border-radius:12px;padding:4px;margin-bottom:24px}
+.auth-tab{flex:1;padding:9px;border:none;background:none;font-family:'Inter',sans-serif;font-size:.84rem;font-weight:600;color:rgba(255,255,255,.45);cursor:pointer;border-radius:9px;transition:all .18s;letter-spacing:.01em}
+.auth-tab.active{background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(20,71,204,.35)}
+.auth-field{margin-bottom:16px}
+.auth-field label{display:block;font-size:.72rem;font-weight:600;color:rgba(255,255,255,.45);margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase}
+.auth-field input{width:100%;padding:11px 14px;border:1.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);font-family:'Inter',sans-serif;font-size:.9rem;color:#fff;border-radius:12px;outline:none;transition:border-color .18s,background .18s;-webkit-appearance:none}
+.auth-field input::placeholder{color:rgba(255,255,255,.3)}
+.auth-field input:focus{border-color:var(--blue);background:rgba(20,71,204,.1)}
+.auth-btn{width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:12px;font-family:'Inter',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;letter-spacing:.02em;transition:background .15s;margin-top:4px}
+.auth-btn:hover{background:#1139b0}
+.auth-btn:disabled{opacity:.55;cursor:default}
+.auth-msg{font-size:.78rem;margin-top:14px;text-align:center;min-height:1.2em}
+.auth-msg.err{color:#ff7b7b}
+.auth-msg.ok{color:#7bffb0}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -702,9 +723,106 @@ const _supabase = supabase.createClient(
   'https://pdmkgqtzelipitkaqmjk.supabase.co',
   'sb_publishable_FhSPgVDsgKPVIdeeUAquIQ_YqI7b0Q7'
 );
+
+window._currentUserId = null;
+
+function _authShowApp() {
+  document.getElementById('authOverlay').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = '';
+  // Load cloud quotes for the authenticated user
+  if (typeof loadQuotesFromSupabase === 'function') loadQuotesFromSupabase();
+}
+
+function _authShowModal() {
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.getElementById('logoutBtn').style.display = 'none';
+}
+
+function switchAuthTab(tab) {
+  document.getElementById('authTabLogin').classList.toggle('active', tab === 'login');
+  document.getElementById('authTabSignup').classList.toggle('active', tab === 'signup');
+  document.getElementById('authPanelLogin').style.display = tab === 'login' ? '' : 'none';
+  document.getElementById('authPanelSignup').style.display = tab === 'signup' ? '' : 'none';
+  const m = document.getElementById('authMsg');
+  m.textContent = ''; m.className = 'auth-msg';
+}
+
+async function doLogin() {
+  const email = document.getElementById('authLoginEmail').value.trim();
+  const pwd = document.getElementById('authLoginPwd').value;
+  const btn = document.querySelector('#authPanelLogin .auth-btn');
+  const msg = document.getElementById('authMsg');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  msg.textContent = ''; msg.className = 'auth-msg';
+  const { error } = await _supabase.auth.signInWithPassword({ email, password: pwd });
+  btn.disabled = false; btn.textContent = 'Sign In';
+  if (error) { msg.textContent = error.message; msg.className = 'auth-msg err'; }
+}
+
+async function doSignup() {
+  const email = document.getElementById('authSignupEmail').value.trim();
+  const pwd = document.getElementById('authSignupPwd').value;
+  const btn = document.querySelector('#authPanelSignup .auth-btn');
+  const msg = document.getElementById('authMsg');
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  msg.textContent = ''; msg.className = 'auth-msg';
+  const { error } = await _supabase.auth.signUp({ email, password: pwd });
+  btn.disabled = false; btn.textContent = 'Create Account';
+  if (error) { msg.textContent = error.message; msg.className = 'auth-msg err'; }
+  else { msg.textContent = 'Check your email to confirm your account, then log in.'; msg.className = 'auth-msg ok'; }
+}
+
+async function doLogout() {
+  await _supabase.auth.signOut();
+  window._currentUserId = null;
+  _authShowModal();
+}
+
+// Listen for auth state changes (login / logout / token refresh)
+_supabase.auth.onAuthStateChange((_event, session) => {
+  if (session) {
+    window._currentUserId = session.user.id;
+    _authShowApp();
+  } else {
+    window._currentUserId = null;
+    _authShowModal();
+  }
+});
+
+// Check existing session on page load
+(async () => {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (session) {
+    window._currentUserId = session.user.id;
+    _authShowApp();
+  }
+  // If no session, overlay stays visible (default display:flex in CSS)
+})();
 </script>
 </head>
 <body>
+
+<!-- ═══ AUTH OVERLAY ═══ -->
+<div id="authOverlay">
+  <div class="auth-box">
+    <div class="auth-logo"><span class="al-dot"></span><span class="al-name">SiteSync</span></div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="authTabLogin" onclick="switchAuthTab('login')">Login</button>
+      <button class="auth-tab" id="authTabSignup" onclick="switchAuthTab('signup')">Sign Up</button>
+    </div>
+    <div id="authPanelLogin">
+      <div class="auth-field"><label>Email</label><input type="email" id="authLoginEmail" placeholder="you@example.com" autocomplete="email"/></div>
+      <div class="auth-field"><label>Password</label><input type="password" id="authLoginPwd" placeholder="••••••••" autocomplete="current-password"/></div>
+      <button class="auth-btn" onclick="doLogin()">Sign In</button>
+    </div>
+    <div id="authPanelSignup" style="display:none">
+      <div class="auth-field"><label>Email</label><input type="email" id="authSignupEmail" placeholder="you@example.com" autocomplete="email"/></div>
+      <div class="auth-field"><label>Password</label><input type="password" id="authSignupPwd" placeholder="Min. 6 characters" autocomplete="new-password"/></div>
+      <button class="auth-btn" onclick="doSignup()">Create Account</button>
+    </div>
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
 
 <header class="topbar">
 <div class="topbar-inner">
@@ -717,7 +835,10 @@ const _supabase = supabase.createClient(
     <button id="nt-clients" onclick="goClients()">Clients</button>
     <button id="nt-projects" onclick="goProjects()">Projects</button>
   </nav>
-  <button class="btn btn-ghost btn-xs" onclick="openSettingsModal()" title="Company Settings" style="flex-shrink:0;font-size:.95rem;padding:6px 9px;min-height:unset">⚙</button>
+  <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+    <button class="btn btn-ghost btn-xs" onclick="openSettingsModal()" title="Company Settings" style="font-size:.95rem;padding:6px 9px;min-height:unset">⚙</button>
+    <button class="btn btn-ghost btn-xs" id="logoutBtn" onclick="doLogout()" title="Sign out" style="display:none;font-size:.78rem;padding:6px 10px;min-height:unset;color:var(--muted)">Sign Out</button>
+  </div>
 </div>
 </header>
 
@@ -2259,7 +2380,7 @@ function confirmSave(){
   putQuotes(quotes);
 
   // Sync to Supabase
-  _supabase.from('quotes').upsert({quote_id: snap.id, name: snap.name, client: snap.clientName, phone: snap.phone, total: snap.total, status: snap.status, data: snap},{onConflict: 'quote_id'}).then(({data, error}) => { if(error) console.error('Supabase error:', error); else console.log('Supabase saved:', data); });
+  _supabase.from('quotes').upsert({quote_id: snap.id, user_id: window._currentUserId||null, name: snap.name, client: snap.clientName, phone: snap.phone, total: snap.total, status: snap.status, data: snap},{onConflict: 'quote_id'}).then(({data, error}) => { if(error) console.error('Supabase error:', error); else console.log('Supabase saved:', data); });
 
   // Auto-create/update client profile
   ensureClientFromSnap(snap);
@@ -4380,8 +4501,8 @@ document.addEventListener('keydown',e=>{
 });
 
 function loadQuotesFromSupabase(){
-  if(!_supabase) return;
-  _supabase.from('quotes').select('*').then(({data, error}) => {
+  if(!_supabase || !window._currentUserId) return;
+  _supabase.from('quotes').select('*').eq('user_id', window._currentUserId).then(({data, error}) => {
     if(error){console.error('Supabase load error:', error); return;}
     if(!data||!data.length) return;
     const quotes=getQuotes();
