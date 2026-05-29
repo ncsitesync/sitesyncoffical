@@ -2259,7 +2259,7 @@ function confirmSave(){
   putQuotes(quotes);
 
   // Sync to Supabase
-  _supabase.from('quotes').insert({name: snap.name, client: snap.clientName, phone: snap.phone, total: snap.total, status: snap.status, data: snap}).then(({data, error}) => { if(error) console.error('Supabase error:', error); else console.log('Supabase saved:', data); });
+  _supabase.from('quotes').upsert({quote_id: snap.id, name: snap.name, client: snap.clientName, phone: snap.phone, total: snap.total, status: snap.status, data: snap},{onConflict: 'quote_id'}).then(({data, error}) => { if(error) console.error('Supabase error:', error); else console.log('Supabase saved:', data); });
 
   // Auto-create/update client profile
   ensureClientFromSnap(snap);
@@ -4379,6 +4379,21 @@ document.addEventListener('keydown',e=>{
   }
 });
 
+function loadQuotesFromSupabase(){
+  if(!_supabase) return;
+  _supabase.from('quotes').select('*').then(({data, error}) => {
+    if(error){console.error('Supabase load error:', error); return;}
+    if(!data||!data.length) return;
+    const quotes=getQuotes();
+    const map=Object.fromEntries(quotes.map(q=>[q.id,q]));
+    data.forEach(row=>{
+      if(row.data && row.data.id){map[row.data.id]=row.data;}
+    });
+    putQuotes(Object.values(map));
+    console.log('Supabase quotes synced:', data.length);
+  });
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // ── INIT ──────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
@@ -4393,6 +4408,8 @@ window.addEventListener('DOMContentLoaded',()=>{
   else{goHome();}
   // Show welcome popup only on very first ever visit
   checkWelcome();
+  // Pull any cloud-saved quotes into localStorage
+  loadQuotesFromSupabase();
 });
 </script>
 </body>
